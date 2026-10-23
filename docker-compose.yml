@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_USER: tagp
+      POSTGRES_PASSWORD: tagp
+      POSTGRES_DB: tagp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tagp -d tagp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://tagp:tagp@postgres:5432/tagp
+      REDIS_URL: redis://redis:6379/0
+      TASK_MODE: celery
+      DATA_DIR: /app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://tagp:tagp@postgres:5432/tagp
+      REDIS_URL: redis://redis:6379/0
+      TASK_MODE: celery
+      DATA_DIR: /app/data
+    command: celery -A app.workers.celery_app:celery worker --loglevel=INFO
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://tagp:tagp@postgres:5432/tagp
+      REDIS_URL: redis://redis:6379/0
+    command: celery -A app.workers.celery_app:celery beat --loglevel=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    environment:
+      API_PROXY_TARGET: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

@@ -1,0 +1,789 @@
+MASTER PROMPT: Build a Production-Ready Telegram Audience Growth & Campaign Management Platform
+
+1. YOUR ROLE
+
+Act as a senior full-stack engineer, software architect, product manager, UI/UX designer, database engineer, QA engineer, and DevOps engineer.
+
+Build a complete, working web application called Telegram Audience Growth Platform.
+
+Do not stop at writing a plan, creating mockups, or generating code snippets. Inspect the development environment, create the project files, implement the application, run it, test it, fix errors, and provide clear instructions for launching it.
+
+Make sensible engineering decisions independently. Ask questions only when a genuinely critical decision cannot be made safely.
+
+2. BUSINESS CONTEXT
+
+I have a Telegram public channel and a database of approximately 40,000 phone numbers.
+
+I want a centralized platform that helps me:
+- Import and manage my contact database.
+- Validate and deduplicate phone numbers.
+- Record consent and communication preferences.
+- Create and manage Telegram acquisition campaigns.
+- Generate campaign-specific Telegram invitation links.
+- Track Telegram membership events and attribute joins to campaigns when supported by available evidence.
+- Identify eligible contacts whose membership status is unknown or who are verified non-members.
+- Run compliant follow-up campaigns through authorized communication providers.
+- Monitor conversions, failures, campaign costs, and net channel growth.
+- Manage everything through a modern web dashboard.
+
+CRITICAL CONSTRAINT:
+Telegram does not provide a general-purpose Bot API method to find every Telegram account from arbitrary phone numbers or automatically add a list of 40,000 people to a channel. Do not implement scraping, unauthorized account discovery, unsolicited mass messaging, or attempts to bypass Telegram's restrictions.
+
+Build the system around official Telegram Bot API capabilities, voluntary joining, trackable invitation links, verified membership events, and authorized outreach integrations.
+
+3. REQUIRED TECHNOLOGY STACK
+
+Use the following stack unless a compelling technical limitation requires an alternative. Document any deviations.
+
+Frontend:
+- Next.js with TypeScript.
+- React.
+- Tailwind CSS.
+- shadcn/ui or an equivalent accessible component library.
+- Recharts for analytics.
+- Responsive desktop, tablet, and mobile layouts.
+
+Backend:
+- Python with FastAPI.
+- Pydantic for request and response validation.
+- SQLAlchemy 2.x ORM.
+- Alembic database migrations.
+- Official python-telegram-bot library compatible with Python 3.11+.
+
+Database and background jobs:
+- PostgreSQL.
+- Redis.
+- Celery for background jobs, imports, reconciliation, and scheduled tasks.
+
+Infrastructure:
+- Docker and Docker Compose for local development.
+- Environment-based configuration.
+- Structured application logging.
+- Health-check endpoints.
+- Automated tests.
+- CI-ready linting and type checking.
+
+Use maintained, compatible dependency versions and pin them in dependency files.
+
+4. PRODUCT MODULES
+
+MODULE A: AUTHENTICATION AND ADMINISTRATION
+
+Implement:
+- Secure administrator login.
+- Logout and session expiration.
+- Role-based access control.
+- Roles: Super Admin, Campaign Manager, Analyst, Read-Only.
+- Secure password hashing if using password-based authentication.
+- Rate limiting for authentication endpoints.
+- Audit logging for sensitive actions.
+- A settings page for Telegram integration status.
+
+Never hardcode production credentials.
+
+MODULE B: CONTACT MANAGEMENT
+
+Create a contact-management interface supporting CSV and XLSX imports.
+
+Required contact fields:
+- Internal UUID.
+- Phone number.
+- Normalized phone number in E.164 format.
+- Optional name.
+- Contact source.
+- Import batch ID.
+- Creation timestamp.
+- Consent status.
+- Suppression status.
+- Communication preferences.
+- Last permitted outreach timestamp.
+- Membership status.
+- Last membership event timestamp.
+
+Features:
+- Upload a file using drag and drop.
+- Preview the first rows.
+- Map uploaded columns to system fields.
+- Validate phone numbers using a phone-number parsing library.
+- Normalize numbers where country information is sufficient.
+- Detect duplicates within the file and existing database.
+- Identify malformed records.
+- Show a detailed import report.
+- Support asynchronous imports for 40,000+ records.
+- Provide downloadable error reports.
+- Support searching, filtering, sorting, pagination, and exports.
+- Preserve import history.
+
+Do not assume that every imported phone number belongs to a Telegram account.
+
+Treat consent as purpose-specific and channel-specific. Do not mark imported contacts as consented by default.
+
+MODULE C: CONSENT AND SUPPRESSION MANAGEMENT
+
+Create a consent-management module.
+
+Store:
+- Contact ID.
+- Communication channel.
+- Purpose of processing.
+- Consent status.
+- Source of consent.
+- Timestamp.
+- Applicable notice or policy version.
+- Withdrawal timestamp.
+- Evidence reference, when available.
+
+Supported statuses:
+- Pending.
+- Granted.
+- Withdrawn.
+- Expired, if applicable to the consent policy.
+
+Create a suppression list that prevents further outreach where required.
+
+Requirements:
+- Suppression must be checked server-side before every campaign action.
+- A withdrawn consent must not be overwritten by a later import.
+- Importing the same contact again must not reactivate a suppressed contact.
+- All consent and suppression changes must be auditable.
+- Support data-retention and deletion workflows.
+- Do not store sensitive personal information unnecessarily.
+
+MODULE D: TELEGRAM INTEGRATION
+
+Use the official Telegram Bot API.
+
+Provide a Telegram integration settings page with:
+- Bot configuration status.
+- Configured channel username or ID.
+- Bot administrator status, where it can be verified.
+- Required permissions checklist.
+- Webhook or polling status.
+- Last successful event timestamp.
+- Recent integration errors.
+- Test connection workflow.
+
+Implement:
+1. Bot startup and health checking.
+2. /start command.
+3. /myid command for administrator troubleshooting.
+4. An administrator-only /invite command.
+5. Campaign-specific invite-link creation.
+6. Membership update handling.
+7. Join and leave event recording.
+8. Event deduplication.
+9. Retry-safe processing.
+10. Link attribution.
+11. Periodic reconciliation where supported.
+12. Integration error logging.
+
+Generate invite links through Telegram's supported API methods. Do not fabricate Telegram invite URLs.
+
+Use unique campaign labels and store the association between each invite link and its campaign.
+
+Configure the bot to receive relevant chat_member updates and ensure it has the necessary administrator permissions.
+
+Handle Telegram API errors gracefully.
+
+Never expose the bot token in API responses, browser code, logs, or the UI.
+
+MODULE E: CAMPAIGN MANAGEMENT
+
+Create a complete campaign management interface.
+
+Each campaign must have:
+- Campaign ID.
+- Campaign name.
+- Description.
+- Campaign objective.
+- Target audience.
+- Outreach channel.
+- Message template.
+- Campaign-specific Telegram invite link, where applicable.
+- Start and end dates.
+- Status.
+- Created by.
+- Approved by.
+- Creation and modification timestamps.
+
+Campaign statuses:
+- Draft.
+- Pending Approval.
+- Approved.
+- Scheduled.
+- Running.
+- Paused.
+- Completed.
+- Failed.
+- Cancelled.
+
+Features:
+- Create, edit, duplicate, pause, resume, and archive campaigns.
+- Preview the audience before launch.
+- Display eligible, excluded, suppressed, and unknown-consent counts.
+- Preview message content.
+- Require explicit confirmation before launch.
+- Record campaign approval and launch actions.
+- Support a dry-run mode.
+- Prevent duplicate campaign jobs.
+- Recheck eligibility immediately before sending.
+- Provide clear failure reasons.
+- Support configurable contact-frequency limits.
+- Maintain a campaign activity log.
+
+Separate campaign configuration from actual message delivery.
+
+MODULE F: AUTHORIZED OUTREACH PROVIDERS
+
+Design a provider interface that can support:
+- Telegram bot messages to users who have voluntarily initiated contact and where messaging is permitted.
+- An approved WhatsApp Business integration.
+- An authorized email provider.
+- An authorized SMS provider.
+
+Implement provider adapters only where credentials and configuration are available.
+
+Do not claim that a message was delivered merely because a provider accepted the send request.
+
+Maintain distinct states:
+- Queued.
+- Attempted.
+- Accepted by provider.
+- Delivery confirmed.
+- Failed.
+- Cancelled.
+- Suppressed.
+
+If no provider is configured, the platform must still support generating and managing campaign invitation links without pretending to send messages.
+
+Do not use a personal Telegram account or unofficial client automation to send bulk unsolicited messages.
+
+MODULE G: MEMBERSHIP TRACKING AND ATTRIBUTION
+
+Build a reliable event-processing system.
+
+Record:
+- Event ID.
+- Telegram update ID.
+- Telegram user ID, when supplied by Telegram.
+- Channel ID.
+- Event type.
+- Old membership status, when available.
+- New membership status.
+- Invite-link ID, when available.
+- Campaign ID, when attributable.
+- Event timestamp.
+- Processing status.
+- Error details.
+
+Handle:
+- New memberships.
+- Membership departures.
+- Rejoining.
+- Join requests where applicable.
+- Duplicate webhook deliveries.
+- Delayed updates.
+- Unknown attribution.
+- Missing identity matches.
+
+Do not assume that a channel member can be matched to a phone number.
+
+If person-level attribution is required, implement an optional, voluntary identity-linking flow using a secure, single-use, expiring token. Clearly explain the purpose and collect any required consent.
+
+Do not include phone numbers or personal data in invite URLs, query strings, or publicly visible campaign tokens.
+
+Create a reconciliation process to compare recorded membership events with available Telegram data. Do not invent missing events or claim complete historical membership data when it is unavailable.
+
+MODULE H: CONTACT STATUS AND RETARGETING ELIGIBILITY
+
+Implement the following states:
+- IMPORTED.
+- CONSENT_PENDING.
+- ELIGIBLE.
+- INVITE_QUEUED.
+- INVITE_ATTEMPTED.
+- INVITE_SENT.
+- DELIVERY_CONFIRMED.
+- JOINED_ATTRIBUTED.
+- JOINED_UNATTRIBUTED.
+- LEFT_CHANNEL.
+- NOT_JOINED_CONFIRMED.
+- UNKNOWN.
+- SUPPRESSED.
+- FAILED.
+
+The system must distinguish between:
+- No invitation attempted.
+- Invitation attempted but delivery unknown.
+- Delivery confirmed.
+- Joined through a tracked campaign.
+- Known member without campaign attribution.
+- Verified non-member.
+- Unknown membership status.
+
+Do not label a contact as a confirmed non-joiner solely because no join event was recorded.
+
+Create configurable eligibility rules.
+
+Default follow-up rules:
+1. Require valid permission for the chosen outreach channel.
+2. Exclude suppressed contacts.
+3. Exclude contacts who have already joined when that identity match is verified.
+4. Exclude contacts whose membership status is unknown when the campaign specifically targets confirmed non-members.
+5. Apply frequency caps.
+6. Respect campaign start/end dates and provider restrictions.
+7. Require operator approval before launching follow-up campaigns.
+
+Never automatically contact all 40,000 records merely because they exist in the database.
+
+MODULE I: ANALYTICS DASHBOARD
+
+Build a professional dashboard with the following cards:
+- Total imported contacts.
+- Unique valid contacts.
+- Eligible contacts.
+- Contacts pending consent.
+- Suppressed contacts.
+- Invitations attempted.
+- Invitations accepted by provider.
+- Delivery confirmations, where available.
+- Attributed joins.
+- Unattributed joins.
+- Verified departures.
+- Net channel growth.
+- Conversion rate.
+- Cost per attributed join.
+- Provider failure rate.
+
+Create these visualizations:
+1. Audience eligibility funnel.
+2. Invitation-to-join conversion funnel.
+3. Daily and weekly attributed joins.
+4. Campaign performance comparison.
+5. Membership growth over time.
+6. Join and departure trends.
+7. Outreach provider performance.
+8. Campaign cost and acquisition efficiency.
+9. Contact-status distribution.
+10. Retention cohorts, where reliable historical data exists.
+
+Filters:
+- Date range.
+- Campaign.
+- Outreach provider.
+- Contact source.
+- Consent status.
+- Campaign status.
+- Audience segment.
+
+Use real database-backed metrics. Do not use hardcoded mock values in production.
+
+For every metric, define the numerator, denominator, time window, and event source. Distinguish zero from missing data.
+
+MODULE J: CONTACT-LEVEL ACTIVITY TIMELINE
+
+Create a detailed contact profile.
+
+Show:
+- Contact metadata.
+- Consent history.
+- Suppression history.
+- Campaign eligibility history.
+- Invitations attempted.
+- Provider responses.
+- Tracked link interactions, if instrumented.
+- Voluntary identity-linking events.
+- Telegram membership events, if legitimately associated.
+- Follow-up history.
+- Audit events relevant to that contact.
+
+Restrict phone-number visibility to authorized roles.
+
+Provide an export function with explicit permission checks and audit logging.
+
+MODULE K: BACKGROUND JOBS AND MONITORING
+
+Use Celery and Redis for:
+- Large contact imports.
+- Data validation.
+- Campaign preparation.
+- Authorized message delivery.
+- Scheduled campaigns.
+- Telegram event processing, where useful.
+- Membership reconciliation.
+- Analytics aggregation.
+- Retention and deletion jobs.
+
+Requirements:
+- Idempotent jobs.
+- Bounded retries.
+- Exponential backoff for transient failures.
+- Dead-letter or failed-job handling.
+- Job progress indicators.
+- Cancellation support.
+- Structured logs.
+- Health checks.
+- Monitoring and alerting for failed jobs.
+
+Never retry permanent permission errors or suppressed-contact actions as though they were transient errors.
+
+5. DATABASE SCHEMA
+
+Design a normalized PostgreSQL database with migrations.
+
+Include at least:
+1. users
+2. roles
+3. contacts
+4. import_batches
+5. import_errors
+6. consents
+7. suppression_records
+8. campaigns
+9. campaign_audiences
+10. campaign_links
+11. invitations
+12. provider_messages
+13. telegram_identities
+14. contact_identity_links
+15. membership_events
+16. webhook_inbox
+17. campaign_events
+18. job_runs
+19. audit_logs
+20. system_settings
+
+Use UUIDs for internal entity identifiers where appropriate.
+
+Add:
+- Foreign keys.
+- Appropriate indexes.
+- Unique constraints.
+- Database transactions.
+- UTC timestamps.
+- Explicit handling of nullable identities.
+- Idempotency constraints.
+- Migration scripts.
+
+Protect phone numbers using appropriate encryption and access controls. If implementing a deterministic lookup hash, use a keyed HMAC with a secret stored separately from the database. Do not treat a plain SHA hash of a phone number as secure anonymization.
+
+Never store raw bot tokens in ordinary application tables.
+
+6. BACKEND API
+
+Create versioned REST endpoints.
+
+Authentication:
+- POST /api/v1/auth/login
+- POST /api/v1/auth/logout
+- GET /api/v1/auth/me
+
+Contacts and imports:
+- POST /api/v1/imports
+- GET /api/v1/imports
+- GET /api/v1/imports/{id}
+- GET /api/v1/contacts
+- GET /api/v1/contacts/{id}
+- GET /api/v1/contacts/{id}/timeline
+- POST /api/v1/contacts/{id}/suppress
+
+Consent:
+- GET /api/v1/contacts/{id}/consents
+- POST /api/v1/contacts/{id}/consents
+- POST /api/v1/contacts/{id}/consents/{consent_id}/withdraw
+
+Campaigns:
+- GET /api/v1/campaigns
+- POST /api/v1/campaigns
+- GET /api/v1/campaigns/{id}
+- PATCH /api/v1/campaigns/{id}
+- POST /api/v1/campaigns/{id}/preview
+- POST /api/v1/campaigns/{id}/approve
+- POST /api/v1/campaigns/{id}/launch
+- POST /api/v1/campaigns/{id}/pause
+- POST /api/v1/campaigns/{id}/resume
+- POST /api/v1/campaigns/{id}/cancel
+
+Telegram:
+- GET /api/v1/integrations/telegram/status
+- POST /api/v1/integrations/telegram/test
+- POST /api/v1/integrations/telegram/invite-links
+- POST /api/v1/webhooks/telegram
+
+Analytics:
+- GET /api/v1/analytics/overview
+- GET /api/v1/analytics/funnel
+- GET /api/v1/analytics/campaigns
+- GET /api/v1/analytics/membership
+- GET /api/v1/analytics/retention
+
+Use pagination, validated request schemas, consistent error responses, and appropriate HTTP status codes.
+
+Protect all sensitive endpoints with authentication and role-based authorization.
+
+Do not expose unrestricted exports or bulk contact data through public endpoints.
+
+7. FRONTEND PAGES
+
+Build the following routes:
+- /login
+- /dashboard
+- /contacts
+- /contacts/import
+- /contacts/[id]
+- /campaigns
+- /campaigns/new
+- /campaigns/[id]
+- /analytics
+- /integrations/telegram
+- /settings/consent
+- /settings/users
+- /settings/audit-logs
+
+Design requirements:
+- Professional SaaS interface.
+- Clean navigation sidebar.
+- Responsive layout.
+- Loading, empty, success, and error states.
+- Searchable, sortable, paginated tables.
+- Confirmation dialogs for destructive actions.
+- Accessible forms.
+- Clear status indicators.
+- Useful tooltips for ambiguous metrics.
+- No fake buttons or nonfunctional controls.
+
+Include a small sample dataset for development only. Make mock data visibly identifiable and keep it separate from production records.
+
+8. SECURITY AND PRIVACY
+
+Implement:
+- Secure secret management.
+- HTTPS-ready configuration.
+- Strict request validation.
+- Authentication and role checks.
+- Rate limiting.
+- Telegram webhook secret validation.
+- CSV/XLSX validation.
+- Protection against spreadsheet formula injection on exports.
+- Protection against SQL injection and cross-site scripting.
+- Appropriate CSRF protection for cookie-based authentication.
+- Secure cookies and session expiration.
+- Audit logging.
+- Data retention and deletion workflows.
+- Least-privilege database and cloud access.
+- Backup and recovery documentation.
+
+Never log bot tokens, passwords, session cookies, full authorization headers, or unnecessary personal data.
+
+Do not send contact records to external AI services or third-party APIs unless explicitly configured, authorized, and necessary.
+
+Review applicable privacy and communication requirements before production deployment.
+
+9. TESTING REQUIREMENTS
+
+Create automated tests for:
+
+Contact import:
+- Valid records.
+- Invalid phone numbers.
+- Duplicate records.
+- Duplicate imports.
+- Missing consent.
+- Suppressed contacts.
+- Large-file handling.
+
+Campaigns:
+- Draft creation.
+- Audience preview.
+- Approval permissions.
+- Launch confirmation.
+- Pause and cancellation.
+- Eligibility rechecks.
+- Frequency caps.
+- Duplicate-job prevention.
+
+Telegram integration:
+- Successful invite-link creation.
+- Invalid bot token.
+- Missing administrator permissions.
+- Invalid channel configuration.
+- Join-event processing.
+- Leave-event processing.
+- Duplicate updates.
+- Missing invite-link attribution.
+- Webhook secret validation.
+
+Analytics:
+- Accurate aggregation.
+- Correct date filtering.
+- Campaign attribution.
+- Unknown membership status.
+- Zero-denominator conversion rates.
+- Missing data handling.
+- Reconciliation after duplicate events.
+
+Security:
+- Unauthorized access.
+- Role-based permissions.
+- Suppression enforcement.
+- Consent withdrawal.
+- Token secrecy.
+- Restricted exports.
+
+Use mocked Telegram API responses for unit tests. Add an optional integration-test mode that runs only when explicitly enabled and configured with a dedicated test bot and channel.
+
+Never run real bulk outreach during tests.
+
+10. REQUIRED PROJECT DELIVERABLES
+
+Create a complete repository containing:
+- Frontend application.
+- Backend application.
+- Telegram bot integration.
+- Database models.
+- Database migrations.
+- Background workers.
+- Docker Compose configuration.
+- Environment variable template.
+- Automated tests.
+- API documentation.
+- README.
+- Deployment guide.
+- Security notes.
+- Database schema documentation.
+- System architecture diagram.
+- Product requirements document.
+- Troubleshooting guide.
+- Sample import CSV with fake data.
+- Sample campaign and analytics seed data.
+
+Include a .gitignore that excludes .env, secrets, virtual environments, generated files, and local databases.
+
+Create .env.example containing placeholders only, including:
+- DATABASE_URL
+- REDIS_URL
+- BOT_TOKEN
+- TELEGRAM_CHANNEL_ID
+- TELEGRAM_WEBHOOK_SECRET
+- APP_SECRET_KEY
+- ADMIN_USER_ID
+- ENVIRONMENT
+
+Document which settings are mandatory and which are optional.
+
+Never put actual credentials into committed files.
+
+11. DEVELOPMENT WORKFLOW
+
+Phase 1: Inspect and plan
+- Inspect the existing repository and runtime.
+- Identify existing files and dependencies.
+- Create an implementation checklist.
+- Establish the application architecture.
+- Identify external prerequisites.
+
+Phase 2: Build the foundation
+- Set up the backend.
+- Set up the frontend.
+- Configure PostgreSQL and Redis.
+- Implement authentication.
+- Implement migrations.
+- Add health checks.
+
+Phase 3: Implement contact management
+- Build import workflows.
+- Implement normalization and deduplication.
+- Implement consent and suppression.
+- Build contact search and profiles.
+
+Phase 4: Implement Telegram integration
+- Implement official Bot API integration.
+- Add invite-link creation.
+- Add membership event processing.
+- Add idempotency and reconciliation.
+- Build integration diagnostics.
+
+Phase 5: Implement campaigns
+- Build campaign creation and approval.
+- Implement audience previews.
+- Implement authorized provider adapters.
+- Add background jobs.
+- Add safe pause, resume, and cancellation.
+
+Phase 6: Implement analytics
+- Create SQL-backed metric calculations.
+- Build charts and filters.
+- Implement contact timelines.
+- Add campaign comparison and reporting.
+
+Phase 7: Verify the complete application
+- Run database migrations.
+- Run backend tests.
+- Run frontend tests and type checking.
+- Run linting.
+- Start the application locally.
+- Test the contact-import workflow.
+- Test the Telegram integration with a dedicated test channel.
+- Verify membership events.
+- Fix failures rather than merely documenting them.
+
+Phase 8: Document and hand over
+Provide exact commands to install, configure, run, test, and deploy the application.
+
+List all remaining manual configuration steps and external dependencies.
+
+Do not claim a test passed unless it was actually executed and its result verified.
+
+12. ACCEPTANCE CRITERIA
+
+The project is complete only when:
+1. An administrator can log in.
+2. A contact file containing 40,000 records can be imported and processed asynchronously.
+3. Duplicate and invalid records are reported.
+4. Consent and suppression rules are enforced server-side.
+5. An administrator can configure a Telegram bot and channel.
+6. The bot can create a valid campaign invitation link when correctly configured.
+7. A consenting test user can voluntarily join using that link.
+8. The application records the resulting membership event when Telegram provides it.
+9. Campaign attribution works when the relevant invite-link information is available.
+10. Unknown membership status is not misclassified as confirmed non-membership.
+11. Dashboard metrics reflect stored events rather than fabricated figures.
+12. A campaign can be paused and cancelled safely.
+13. Duplicate events and background jobs do not inflate metrics.
+14. Unauthorized users cannot access contacts or launch campaigns.
+15. The project starts using documented commands.
+16. Automated tests pass in the configured test environment.
+17. No production secrets are committed.
+18. The README clearly explains what the Telegram Bot API can and cannot do.
+
+13. FINAL INSTRUCTIONS TO THE CODING AGENT
+
+Start implementing the project now.
+
+Do not respond with another high-level plan instead of building the application.
+
+If the repository is empty, initialize the complete project structure.
+
+If an existing repository is present, inspect it and preserve useful existing work.
+
+Prefer a small, working, tested implementation over unnecessary complexity.
+
+Build the core end-to-end workflow first:
+
+Import contacts -> validate consent -> create campaign -> generate invite link -> receive membership event -> store attribution -> display dashboard metrics.
+
+Do not implement unsupported phone-number-to-Telegram-account discovery or unauthorized bulk invitations.
+
+If an external credential, Telegram administrator permission, provider account, or deployment secret is unavailable, implement the integration interface, explain the missing prerequisite, and provide exact instructions for completing the setup manually.
+
+At the end, report:
+1. What you implemented.
+2. Files and modules created.
+3. Exact commands to run the application.
+4. Required environment variables.
+5. Tests executed and their results.
+6. Manual Telegram setup steps.
+7. Known limitations.
+8. Recommended next steps for production deployment.
+
+Begin by inspecting the repository and then proceed through implementation and testing.
